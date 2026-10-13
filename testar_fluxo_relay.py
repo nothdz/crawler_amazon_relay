@@ -4,6 +4,14 @@ import pandas as pd
 from playwright.sync_api import sync_playwright
 from supabase import create_client, Client
 
+# ---------------------------------------------------------------------------
+# Credenciais: NÃO deixe senhas/chaves no código. Defina como variáveis de
+# ambiente (PowerShell, na mesma janela em que vai rodar o script):
+#   $env:EMAIL_AMAZON = "seu_email"
+#   $env:SENHA_AMAZON = "sua_senha"
+#   $env:SUPABASE_URL = "https://ifrnbqosquwdppmrtyos.supabase.co"
+#   $env:SUPABASE_KEY = "sb_secret_..."   # chave SECRETA (ignora o RLS)
+# ---------------------------------------------------------------------------
 EMAIL_AMAZON = os.environ["EMAIL_AMAZON"]
 SENHA_AMAZON = os.environ["SENHA_AMAZON"]
 SUPABASE_URL = os.environ["SUPABASE_URL"]
@@ -107,7 +115,10 @@ def enviar_para_supabase(csv_path):
 
 def testar_fluxo_relay():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False, slow_mo=500)
+        # No GitHub Actions a variável CI=true é definida automaticamente:
+        # lá roda sem janela (headless); localmente continua abrindo o navegador.
+        em_ci = os.environ.get("CI") == "true"
+        browser = p.chromium.launch(headless=em_ci, slow_mo=0 if em_ci else 500)
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
 
