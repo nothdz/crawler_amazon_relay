@@ -143,8 +143,8 @@ def testar_fluxo_relay():
             page.goto("https://relay.amazon.com.br/")
             page.wait_for_load_state("networkidle")
 
-        print("5. Clicando em 'Pesquisa avançada'...")
-        page.click('text=Pesquisa avançada')
+        print("5. Indo para a Pesquisa avançada...")
+        page.goto("https://relay.amazon.com.br/loadboard/search")
         page.wait_for_load_state("networkidle")
 
         print("6. Rolando até o final da página de tours/search...")
