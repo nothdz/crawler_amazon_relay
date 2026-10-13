@@ -2,7 +2,6 @@ name: Sincronizar Relay -> Supabase
 
 on:
   schedule:
-  
     - cron: "0 * * * *"
   workflow_dispatch:
 
@@ -26,8 +25,7 @@ jobs:
 
       - name: Rodar sincronização
         env:
-          EMAIL_AMAZON: ${{ secrets.EMAIL_AMAZON }}
-          SENHA_AMAZON: ${{ secrets.SENHA_AMAZON }}
+          AMAZON_COOKIES: ${{ secrets.AMAZON_COOKIES }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python testar_fluxo_relay.py
@@ -36,5 +34,9 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: erro-login-screenshot
-          path: erro_login.png
+          name: erro-screenshot
+          path: |
+            erro_cookies.png
+            erro_exportar.png
+            erro_login.png
+        continue-on-error: true
