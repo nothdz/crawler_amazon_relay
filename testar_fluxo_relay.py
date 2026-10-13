@@ -143,12 +143,12 @@ def testar_fluxo_relay():
         data_inicio = hoje - timedelta(days=7)
         data_fim = hoje + timedelta(days=3)
 
-        # Formata no padrão exigido pelo link (YYYY-MM-DD+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo)
-        str_inicio = data_inicio.strftime("%Y-%m-%d+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo")
-        str_fim = data_fim.strftime("%Y-%m-%d+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo")
+# Formata apenas a data (YYYY-MM-DD) e junta a parte das horas e fuso exatamente como tinhas no link
+str_inicio = data_inicio.strftime("%Y-%m-%d") + "+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo"
+str_fim = data_fim.strftime("%Y-%m-%d") + "+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo"
 
-        # Monta o URL completo
-        url = f"https://relay.amazon.com.br/tours/search/results?ref=owp_dash_search_bar&asstrtdt={str_inicio}&asenddt={str_fim}&aslctntyp=firstStop"
+# Monta o URL completo
+url = f"https://relay.amazon.com.br/tours/search/results?ref=owp_dash_search_bar&asstrtdt={str_inicio}&asenddt={str_fim}&aslctntyp=firstStop"
 
         print(f"5. Navegando para o link dinâmico: {url}")
         page.goto(url)
