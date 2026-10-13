@@ -16,8 +16,6 @@ CHAVE_UPSERT = "id_da_carga"  # precisa ter constraint UNIQUE na tabela
 
 def montar_mapeamento():
     """Mapeia os nomes das colunas do CSV para as colunas da tabela do Supabase."""
-    # OBS: "ID do bloco" foi removido de propósito. O id_do_bloco é gerado
-    # pelo Supabase e vem em branco no CSV.
     mapeamento = {
         "ID da viagem": "id_da_viagem",
         "Bloco/Viagem": "bloco_viagem",
@@ -74,7 +72,6 @@ def enviar_para_supabase(csv_path):
     df = df[colunas_presentes]
 
     # 3. Limpeza: remove linhas sem id_da_carga e duplicadas no próprio CSV
-    #    (evita o erro "ON CONFLICT DO UPDATE command cannot affect row a second time")
     total_inicial = len(df)
     df = df.dropna(subset=[CHAVE_UPSERT])
     df = df.drop_duplicates(subset=[CHAVE_UPSERT], keep="last")
@@ -108,8 +105,7 @@ def enviar_para_supabase(csv_path):
 
 def testar_fluxo_relay():
     with sync_playwright() as p:
-        # No GitHub Actions a variável CI=true é definida automaticamente:
-        # lá roda sem janela (headless); localmente continua abrindo o navegador.
+        # No GitHub Actions a variável CI=true é definida automaticamente (headless)
         em_ci = os.environ.get("CI") == "true"
         browser = p.chromium.launch(headless=em_ci, slow_mo=0 if em_ci else 500)
         context = browser.new_context(accept_downloads=True)
@@ -119,38 +115,45 @@ def testar_fluxo_relay():
         page.goto("https://relay.amazon.com.br/")
         page.wait_for_load_state("networkidle")
 
-        if "signin" in page.url:
+        if "signin" in page.url or "ap/signin" in page.url or "ap/cvf" in page.url:
             print("2. Detectada tela de login. Inserindo e-mail...")
-            page.fill('input[name="email"]', EMAIL_AMAZON)
-            page.click('input#continue, button#continue, input[type="submit"]')
-            page.wait_for_load_state("networkidle")
+            try:
+                page.wait_for_selector('input#ap_email, input[name="email"], input[type="email"]', timeout=15000)
+                page.fill('input#ap_email, input[name="email"], input[type="email"]', EMAIL_AMAZON)
+                
+                page.click('input#continue, button#continue, input[type="submit"], span#continue input')
+                page.wait_for_load_state("networkidle")
 
-            print("3. Inserindo senha...")
-            page.fill('input[name="password"]', SENHA_AMAZON)
-            page.click('input#signInSubmit, button#auth-signin-button, input[type="submit"]')
-            page.wait_for_load_state("networkidle")
-            print("Login efetuado com sucesso!")
+                print("3. Inserindo senha...")
+                page.wait_for_selector('input#ap_password, input[name="password"], input[type="password"]', timeout=15000)
+                page.fill('input#ap_password, input[name="password"], input[type="password"]', SENHA_AMAZON)
+                
+                page.click('input#signInSubmit, button#auth-signin-button, input[type="submit"]')
+                page.wait_for_load_state("networkidle")
+                print("Login efetuado com sucesso!")
+            except Exception as e:
+                page.screenshot(path="erro_login.png")
+                print("Erro no login. Screenshot guardado como 'erro_login.png'.")
+                raise e
 
         print("4. Navegando para o Relay autenticado...")
         if "relay.amazon.com.br" not in page.url:
             page.goto("https://relay.amazon.com.br/")
             page.wait_for_load_state("networkidle")
 
-        # Pega a data e hora atuais
+        # Pega a data e hora atuais para montar o link dinâmico
         hoje = datetime.now()
-
-        # Calcula as datas desejadas
         data_inicio = hoje - timedelta(days=7)
         data_fim = hoje + timedelta(days=3)
 
-        # Formata apenas a data (YYYY-MM-DD) e junta a parte das horas e fuso exatamente como tinhas no link
+        # Formata as datas mantendo a estrutura original intacta
         str_inicio = data_inicio.strftime("%Y-%m-%d") + "+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo"
         str_fim = data_fim.strftime("%Y-%m-%d") + "+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo"
 
-        # Monta o URL completo
+        # Monta o URL completo de pesquisa avançada diretamente
         url = f"https://relay.amazon.com.br/tours/search/results?ref=owp_dash_search_bar&asstrtdt={str_inicio}&asenddt={str_fim}&aslctntyp=firstStop"
 
-        print(f"5. Navegando para o link dinâmico: {url}")
+        print(f"5. Navegando diretamente para o link dinâmico: {url}")
         page.goto(url)
         page.wait_for_load_state("networkidle")
 
@@ -167,7 +170,7 @@ def testar_fluxo_relay():
 
         browser.close()
 
-    # Envia para o Supabase (fora do bloco do Playwright, com o browser já fechado)
+    # Envia para o Supabase com o browser já fechado
     enviar_para_supabase(csv_path)
 
 
