@@ -107,8 +107,26 @@ def testar_fluxo_relay():
     with sync_playwright() as p:
         # No GitHub Actions a variável CI=true é definida automaticamente (headless)
         em_ci = os.environ.get("CI") == "true"
-        browser = p.chromium.launch(headless=em_ci, slow_mo=0 if em_ci else 500)
-        context = browser.new_context(accept_downloads=True)
+        
+        # Lança o navegador com argumentos anti-deteção para enganar os bloqueios da Amazon
+        browser = p.chromium.launch(
+            headless=em_ci,
+            slow_mo=0 if em_ci else 500,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-infobars",
+                "--window-size=1920,1080",
+            ]
+        )
+        
+        # Cria o contexto simulando um User-Agent real de um computador normal
+        context = browser.new_context(
+            accept_downloads=True,
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080}
+        )
         page = context.new_page()
 
         print("1. Acessando a raiz do Relay...")
