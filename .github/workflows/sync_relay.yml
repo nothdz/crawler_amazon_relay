@@ -31,3 +31,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python testar_fluxo_relay.py
+
+      - name: Upload Screenshot on Failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: erro-login-screenshot
+          path: erro_login.png
