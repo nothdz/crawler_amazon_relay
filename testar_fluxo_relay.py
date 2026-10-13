@@ -179,11 +179,17 @@ def testar_fluxo_relay():
 
         print("6. Tentando localizar e exportar o CSV...")
         try:
-            # Espera o botão aparecer (pode ser "Exportar", "Download", ou ter um ícone)
-            page.wait_for_selector('button:has-text("Exportar"), button:has-text("Export"), [aria-label*="Exportar"]', timeout=15000)
+            # Dá um tempo para a página de resultados da tabela renderizar por completo
+            time.sleep(5)
+            
+            # Alarga os seletores para apanhar o botão de exportar independentemente de como a Amazon o estruturou
+            seletor_botao = 'button:has-text("Exportar"), button:has-text("Export"), button:has-text("Download"), [aria-label*="Exportar"], [data-testid*="export"]'
+            
+            # Espera o botão ficar visível (com um timeout de 25 segundos)
+            page.wait_for_selector(seletor_botao, timeout=25000)
             
             with page.expect_download() as download_info:
-                page.click('button:has-text("Exportar"), button:has-text("Export"), [aria-label*="Exportar"]')
+                page.click(seletor_botao)
 
             download = download_info.value
             csv_path = "./viagens_relay_baixado.csv"
@@ -194,11 +200,6 @@ def testar_fluxo_relay():
             page.screenshot(path="erro_exportar.png")
             print("Erro ao tentar exportar. Screenshot guardado como 'erro_exportar.png'.")
             raise e
-
-        download = download_info.value
-        csv_path = "./viagens_relay_baixado.csv"
-        download.save_as(csv_path)
-        print(f"Sucesso total! CSV salvo em: {csv_path}")
 
         browser.close()
 
