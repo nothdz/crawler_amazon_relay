@@ -105,10 +105,8 @@ def enviar_para_supabase(csv_path):
 
 def testar_fluxo_relay():
     with sync_playwright() as p:
-        # No GitHub Actions a variável CI=true é definida automaticamente (headless)
         em_ci = os.environ.get("CI") == "true"
         
-        # Lança o navegador com argumentos anti-deteção para enganar os bloqueios da Amazon
         browser = p.chromium.launch(
             headless=em_ci,
             slow_mo=0 if em_ci else 500,
@@ -121,79 +119,49 @@ def testar_fluxo_relay():
             ]
         )
         
-        # Cria o contexto simulando um User-Agent real de um computador normal
         context = browser.new_context(
             accept_downloads=True,
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             viewport={"width": 1920, "height": 1080}
         )
+        
+        # INJEÇÃO DOS COOKIES DIRETO DA VARIÁVEL DE AMBIENTE
+        cookies_env = os.environ.get("AMAZON_COOKIES")
+        if cookies_env:
+            try:
+                lista_cookies = json.loads(cookies_env)
+                context.add_cookies(lista_cookies)
+                print("Cookies injetados com sucesso!")
+            except Exception as e:
+                print(f"Erro ao carregar os cookies da variável: {e}")
+
         page = context.new_page()
 
-        print("1. Acessando a raiz do Relay...")
-        page.goto("https://relay.amazon.com.br/")
-        page.wait_for_load_state("networkidle")
-
-        if "signin" in page.url or "ap/signin" in page.url or "ap/cvf" in page.url:
-            print("2. Detectada tela de login. Inserindo e-mail...")
-            try:
-                page.wait_for_selector('input#ap_email, input[name="email"], input[type="email"]', timeout=15000)
-                page.fill('input#ap_email, input[name="email"], input[type="email"]', EMAIL_AMAZON)
-                
-                page.click('input#continue, button#continue, input[type="submit"], span#continue input')
-                page.wait_for_load_state("networkidle")
-
-                print("3. Inserindo senha...")
-                page.wait_for_selector('input#ap_password, input[name="password"], input[type="password"]', timeout=15000)
-                page.fill('input#ap_password, input[name="password"], input[type="password"]', SENHA_AMAZON)
-                
-                page.click('input#signInSubmit, button#auth-signin-button, input[type="submit"]')
-                page.wait_for_load_state("networkidle")
-                print("Login efetuado com sucesso!")
-            except Exception as e:
-                page.screenshot(path="erro_login.png")
-                print("Erro no login. Screenshot guardado como 'erro_login.png'.")
-                raise e
-
-        print("4. Navegando para o Relay autenticado...")
-        if "relay.amazon.com.br" not in page.url:
-            page.goto("https://relay.amazon.com.br/")
-            page.wait_for_load_state("networkidle")
-
-        # Pega a data e hora atuais para montar o link dinâmico
+        # Monta o link dinâmico diretamente com as datas (7 dias atrás e 3 à frente)
         hoje = datetime.now()
         data_inicio = hoje - timedelta(days=7)
         data_fim = hoje + timedelta(days=3)
 
-        # Formata as datas mantendo a estrutura original intacta
         str_inicio = data_inicio.strftime("%Y-%m-%d") + "+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo"
         str_fim = data_fim.strftime("%Y-%m-%d") + "+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo"
 
-        # Monta o URL completo de pesquisa avançada diretamente
         url = f"https://relay.amazon.com.br/tours/search/results?ref=owp_dash_search_bar&asstrtdt={str_inicio}&asenddt={str_fim}&aslctntyp=firstStop"
 
-        print(f"5. Navegando diretamente para o link dinâmico: {url}")
+        print(f"Navegando diretamente para: {url}")
         page.goto(url)
         page.wait_for_load_state("networkidle")
 
+        # Verifica se os cookies expiraram e caiu na página de login
+        if "signin" in page.url or "ap/signin" in page.url:
+            print("Erro: Os cookies expiraram ou são inválidos.")
+            page.screenshot(path="erro_cookies.png")
+            raise Exception("Sessão expirada.")
+
         time.sleep(3)
 
-        print("6. Tentando localizar e exportar o CSV...")
-        try:
-            # Espera o botão aparecer (pode ser "Exportar", "Download", ou ter um ícone)
-            page.wait_for_selector('button:has-text("Exportar"), button:has-text("Export"), [aria-label*="Exportar"]', timeout=15000)
-            
-            with page.expect_download() as download_info:
-                page.click('button:has-text("Exportar"), button:has-text("Export"), [aria-label*="Exportar"]')
-
-            download = download_info.value
-            csv_path = "./viagens_relay_baixado.csv"
-            download.save_as(csv_path)
-            print(f"Sucesso total! CSV salvo em: {csv_path}")
-            
-        except Exception as e:
-            page.screenshot(path="erro_exportar.png")
-            print("Erro ao tentar exportar. Screenshot guardado como 'erro_exportar.png'.")
-            raise e
+        print("Disparando o download do CSV (Exportar)...")
+        with page.expect_download() as download_info:
+            page.click('button:has-text("Exportar"), button:has-text("Export"), [aria-label*="Exportar"]')
 
         download = download_info.value
         csv_path = "./viagens_relay_baixado.csv"
@@ -202,9 +170,7 @@ def testar_fluxo_relay():
 
         browser.close()
 
-    # Envia para o Supabase com o browser já fechado
     enviar_para_supabase(csv_path)
-
 
 if __name__ == "__main__":
     testar_fluxo_relay()
