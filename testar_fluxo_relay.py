@@ -159,9 +159,23 @@ def testar_fluxo_relay():
 
         time.sleep(3)
 
-        print("6. Disparando o download do CSV (Exportar)...")
-        with page.expect_download() as download_info:
-            page.click('button:has-text("Exportar"), button.export-btn')
+        print("6. Tentando localizar e exportar o CSV...")
+        try:
+            # Espera o botão aparecer (pode ser "Exportar", "Download", ou ter um ícone)
+            page.wait_for_selector('button:has-text("Exportar"), button:has-text("Export"), [aria-label*="Exportar"]', timeout=15000)
+            
+            with page.expect_download() as download_info:
+                page.click('button:has-text("Exportar"), button:has-text("Export"), [aria-label*="Exportar"]')
+
+            download = download_info.value
+            csv_path = "./viagens_relay_baixado.csv"
+            download.save_as(csv_path)
+            print(f"Sucesso total! CSV salvo em: {csv_path}")
+            
+        except Exception as e:
+            page.screenshot(path="erro_exportar.png")
+            print("Erro ao tentar exportar. Screenshot guardado como 'erro_exportar.png'.")
+            raise e
 
         download = download_info.value
         csv_path = "./viagens_relay_baixado.csv"
