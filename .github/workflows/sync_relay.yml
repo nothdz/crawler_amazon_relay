@@ -38,10 +38,3 @@ jobs:
         with:
           name: erro-login-screenshot
           path: erro_login.png
-
-      - name: Rodar sincronização
-        env:
-          AMAZON_COOKIES: ${{ secrets.AMAZON_COOKIES }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python seu_script.py
