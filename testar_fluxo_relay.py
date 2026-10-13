@@ -3,15 +3,8 @@ import time
 import pandas as pd
 from playwright.sync_api import sync_playwright
 from supabase import create_client, Client
+from datetime import datetime, timedelta
 
-# ---------------------------------------------------------------------------
-# Credenciais: NÃO deixe senhas/chaves no código. Defina como variáveis de
-# ambiente (PowerShell, na mesma janela em que vai rodar o script):
-#   $env:EMAIL_AMAZON = "seu_email"
-#   $env:SENHA_AMAZON = "sua_senha"
-#   $env:SUPABASE_URL = "https://ifrnbqosquwdppmrtyos.supabase.co"
-#   $env:SUPABASE_KEY = "sb_secret_..."   # chave SECRETA (ignora o RLS)
-# ---------------------------------------------------------------------------
 EMAIL_AMAZON = os.environ["EMAIL_AMAZON"]
 SENHA_AMAZON = os.environ["SENHA_AMAZON"]
 SUPABASE_URL = os.environ["SUPABASE_URL"]
@@ -143,21 +136,27 @@ def testar_fluxo_relay():
             page.goto("https://relay.amazon.com.br/")
             page.wait_for_load_state("networkidle")
 
-        print("5. Indo para a Pesquisa avançada...")
-        page.goto("https://relay.amazon.com.br/loadboard/search")
-        page.wait_for_load_state("networkidle")
+        # Pega a data e hora atuais
+        hoje = datetime.now()
 
-        print("6. Rolando até o final da página de tours/search...")
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        time.sleep(1)
+        # Calcula as datas desejadas
+        data_inicio = hoje - timedelta(days=7)
+        data_fim = hoje + timedelta(days=3)
 
-        print("7. Clicando no botão 'Pesquisar'...")
-        page.click('button:has-text("Pesquisar"), input[value="Pesquisar"]')
+        # Formata no padrão exigido pelo link (YYYY-MM-DD+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo)
+        str_inicio = data_inicio.strftime("%Y-%m-%d+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo")
+        str_fim = data_fim.strftime("%Y-%m-%d+03%3A00%3A00%3A%3AAmerica%2FSao_Paulo")
+
+        # Monta o URL completo
+        url = f"https://relay.amazon.com.br/tours/search/results?ref=owp_dash_search_bar&asstrtdt={str_inicio}&asenddt={str_fim}&aslctntyp=firstStop"
+
+        print(f"5. Navegando para o link dinâmico: {url}")
+        page.goto(url)
         page.wait_for_load_state("networkidle")
 
         time.sleep(3)
 
-        print("8. Disparando o download do CSV (Exportar)...")
+        print("6. Disparando o download do CSV (Exportar)...")
         with page.expect_download() as download_info:
             page.click('button:has-text("Exportar"), button.export-btn')
 
