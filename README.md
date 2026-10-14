@@ -62,7 +62,7 @@ $env:SUPABASE_KEY = "sua-chave"
 ## Como rodar
 
 ```bash
-python testar_fluxo_relay.py
+python crawler_relay.py
 ```
 
 ### Modo visível x headless
@@ -73,7 +73,7 @@ O modo é escolhido pela variável de ambiente `CI`:
 - **`CI=true`:** roda em modo headless, sem janela e sem atraso. Use em servidores sem interface gráfica.
 
 ```bash
-CI=true python testar_fluxo_relay.py
+CI=true python crawler_relay.py
 ```
 
 ## Solução de problemas
@@ -87,10 +87,3 @@ CI=true python testar_fluxo_relay.py
 | Erro `42501` no upsert | Política de RLS do Supabase bloqueando a escrita; ajuste as policies ou use uma chave com permissão |
 | `ON CONFLICT ...` no upsert | A coluna `id_da_carga` não tem constraint UNIQUE na tabela |
 
-## Estrutura
-
-```
-.
-├── testar_fluxo_relay.py   # script principal (login, exportação e envio)
-└── README.md
-```
