@@ -9,6 +9,29 @@ from dotenv import load_dotenv
 
 truststore.inject_into_ssl()
 
+ENV_FILE = ".env"
+
+if not os.path.exists(ENV_FILE):
+    print("Primeira execução detectada. Por favor, configure as credenciais:")
+    
+    # Credenciais da Amazon (pessoais de quem está a usar)
+    email_amazon = input("E-mail da Amazon Relay: ").strip()
+    senha_amazon = input("Senha da Amazon Relay: ").strip()
+    
+    # Credenciais do Supabase (do projeto)
+    supabase_url = input("URL do Supabase: ").strip()
+    supabase_key = input("Chave (Key) do Supabase: ").strip()
+    
+    with open(ENV_FILE, "w") as f:
+        f.write(f"EMAIL_AMAZON={email_amazon}\n")
+        f.write(f"SENHA_AMAZON={senha_amazon}\n")
+        f.write(f"SUPABASE_URL={supabase_url}\n")
+        f.write(f"SUPABASE_KEY={supabase_key}\n")
+        
+    print(".env criado com sucesso!\n")
+
+# Carrega as variáveis para o script usar
+from dotenv import load_dotenv
 load_dotenv()
 
 EMAIL_AMAZON = os.getenv("EMAIL_AMAZON")
