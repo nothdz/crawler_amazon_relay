@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 
 truststore.inject_into_ssl()
 
-ENV_FILE = ".env"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_FILE = os.path.join(BASE_DIR, ".env")
 
 if not os.path.exists(ENV_FILE):
     print("Primeira execução detectada. Por favor, configure as credenciais:")
