@@ -1,4 +1,4 @@
-import os
+import os, sys
 import time
 import pandas as pd
 import truststore
@@ -7,7 +7,16 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
+#O item abaixo vai virar um executável na inicialização
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+if sys.executable.lower().endswith("pythonw.exe"):
+    sys.stdout = sys.stderr = open("crawler.log", "a", encoding="utf-8", buffering=1)
+
+#Injeção de SSL para o firewall da empresa deixar passar
 truststore.inject_into_ssl()
+
+#Verifica se já possui .env. Caso não tenha, vai criar um na hora com as credenciais do usuário.
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(BASE_DIR, ".env")
@@ -15,11 +24,11 @@ ENV_FILE = os.path.join(BASE_DIR, ".env")
 if not os.path.exists(ENV_FILE):
     print("Primeira execução detectada. Por favor, configure as credenciais:")
     
-    # Credenciais da Amazon (pessoais de quem está a usar)
+    # Credenciais da Amazon
     email_amazon = input("E-mail da Amazon Relay: ").strip()
     senha_amazon = input("Senha da Amazon Relay: ").strip()
     
-    # Credenciais do Supabase (do projeto)
+    # Credenciais do Supabase
     supabase_url = input("URL do Supabase: ").strip()
     supabase_key = input("Chave (Key) do Supabase: ").strip()
     
