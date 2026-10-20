@@ -4,11 +4,14 @@ import pandas as pd
 from playwright.sync_api import sync_playwright
 from supabase import create_client, Client
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
-EMAIL_AMAZON = os.environ["EMAIL_AMAZON"]
-SENHA_AMAZON = os.environ["SENHA_AMAZON"]
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_KEY"]
+load_dotenv()
+
+EMAIL_AMAZON = os.getenv("EMAIL_AMAZON")
+SENHA_AMAZON = os.getenv("SENHA_AMAZON")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 TABELA = "viagens_relay"
 CHAVE_UPSERT = "id_da_carga"  # precisa ter constraint UNIQUE na tabela
