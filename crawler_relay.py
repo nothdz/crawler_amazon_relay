@@ -1,10 +1,13 @@
 import os
 import time
 import pandas as pd
+import truststore
 from playwright.sync_api import sync_playwright
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+
+truststore.inject_into_ssl()
 
 load_dotenv()
 
@@ -108,13 +111,12 @@ def enviar_para_supabase(csv_path):
 
 def testar_fluxo_relay():
     with sync_playwright() as p:
-        # No GitHub Actions a variável CI=true é definida automaticamente (headless)
-        em_ci = os.environ.get("CI") == "true"
-        
+
         # Lança o navegador com argumentos anti-deteção para enganar os bloqueios da Amazon
         browser = p.chromium.launch(
-            headless=em_ci,
-            slow_mo=0 if em_ci else 500,
+            channel="chrome",
+            headless=True,
+            slow_mo=500,
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
@@ -134,7 +136,7 @@ def testar_fluxo_relay():
 
         print("1. Acessando a raiz do Relay...")
         page.goto("https://relay.amazon.com.br/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("domcontentloaded")
 
         if "signin" in page.url or "ap/signin" in page.url or "ap/cvf" in page.url:
             print("2. Detectada tela de login. Inserindo e-mail...")
@@ -143,14 +145,14 @@ def testar_fluxo_relay():
                 page.fill('input#ap_email, input[name="email"], input[type="email"]', EMAIL_AMAZON)
                 
                 page.click('input#continue, button#continue, input[type="submit"], span#continue input')
-                page.wait_for_load_state("networkidle")
+                page.wait_for_load_state("domcontentloaded")
 
                 print("3. Inserindo senha...")
                 page.wait_for_selector('input#ap_password, input[name="password"], input[type="password"]', timeout=15000)
                 page.fill('input#ap_password, input[name="password"], input[type="password"]', SENHA_AMAZON)
                 
                 page.click('input#signInSubmit, button#auth-signin-button, input[type="submit"]')
-                page.wait_for_load_state("networkidle")
+                page.wait_for_load_state("domcontentloaded")
 
                 # Se ainda estiver numa página de login/verificação, o login não concluiu
                 # (senha errada, CAPTCHA ou verificação em duas etapas)
@@ -166,7 +168,7 @@ def testar_fluxo_relay():
         print("4. Navegando para o Relay autenticado...")
         if "relay.amazon.com.br" not in page.url:
             page.goto("https://relay.amazon.com.br/")
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("domcontentloaded")
 
         # Pega a data e hora atuais para montar o link dinâmico
         hoje = datetime.now()
@@ -182,7 +184,7 @@ def testar_fluxo_relay():
 
         print(f"5. Navegando diretamente para o link dinâmico: {url}")
         page.goto(url)
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("domcontentloaded")
 
         time.sleep(3)
 
