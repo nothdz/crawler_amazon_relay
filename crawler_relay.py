@@ -52,7 +52,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 TABELA = "viagens_relay"
 CHAVE_UPSERT = "id_da_carga"  # precisa ter constraint UNIQUE na tabela
 
-
 def montar_mapeamento():
     """Mapeia os nomes das colunas do CSV para as colunas da tabela do Supabase."""
     mapeamento = {
@@ -141,6 +140,22 @@ def enviar_para_supabase(csv_path):
 
     print("Sincronização com o Supabase concluída com sucesso!")
 
+# Encapsula o seu fluxo (sem alterar nada dele) para rodar em loop
+def rodar_crawler():
+    try:
+        print("Iniciando o crawler...")
+        testar_fluxo_relay()   # <- o seu código inteiro, intacto
+        print("Crawler executado com sucesso!")
+    except Exception as e:
+        print(f"Erro no crawler: {e}")
+
+
+if __name__ == "__main__":
+    while True:
+        rodar_crawler()
+        print("Aguardando 1 hora para a próxima execução...\n")
+        # Espera 3600 segundos (1 hora) antes de rodar de novo
+        time.sleep(3600)
 
 def testar_fluxo_relay():
     with sync_playwright() as p:
