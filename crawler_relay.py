@@ -1,5 +1,7 @@
 import os, sys
 import time
+import socket
+import subprocess
 import pandas as pd
 import truststore
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
@@ -19,11 +21,26 @@ SESSION_FILE = os.path.join(BASE_DIR, "estado_sessao.json")  # cookies da sessã
 SCREENSHOT_LOGIN = os.path.join(BASE_DIR, "erro_login.png")
 SCREENSHOT_EXPORTAR = os.path.join(BASE_DIR, "erro_exportar.png")
 
+LOG_FILE = os.path.join(BASE_DIR, "crawler.log")
+PORTA_TRAVA = 49733  # trava de instância única (só uma cópia em segundo plano por máquina)
+
 CAMPOS_ENV = ["EMAIL_AMAZON", "SENHA_AMAZON", "SUPABASE_URL", "SUPABASE_KEY"]
+
+# O processo em segundo plano é iniciado pelo próprio script com esta variável definida.
+EM_SEGUNDO_PLANO = os.environ.get("CRAWLER_BG") == "1"
+
+if EM_SEGUNDO_PLANO:
+    # Sem janela, tudo que seria exibido vai para o crawler.log (o arquivo é zerado se passar de ~2 MB)
+    _modo_log = "w" if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 2_000_000 else "a"
+    sys.stdout = sys.stderr = open(LOG_FILE, _modo_log, buffering=1, encoding="utf-8")
 
 
 def _tem_todas_as_variaveis():
     return all(os.getenv(c) for c in CAMPOS_ENV)
+
+
+# Primeira execução = não tem .env nem variáveis de ambiente -> vai abrir o modo interativo (visível)
+PRIMEIRA_EXECUCAO = not os.path.exists(ENV_FILE) and not _tem_todas_as_variaveis()
 
 
 # Verifica se já possui .env (ou variáveis de ambiente, ex.: GitHub Actions).
@@ -323,17 +340,86 @@ def testar_fluxo_relay():
 
 # Temporizador
 def rodar_crawler():
+    """Roda o fluxo uma vez. Retorna True se deu certo, False se deu erro."""
     try:
         print("Iniciando o crawler...")
         testar_fluxo_relay()
         print("Crawler executado com sucesso!")
+        return True
     except Exception as e:
         print(f"Erro no crawler: {e}")
+        return False
 
 
-if __name__ == "__main__":
+def iniciar_em_segundo_plano():
+    """Abre uma cópia deste script sem nenhuma janela e devolve o controle."""
+    exe = sys.executable
+    if exe.lower().endswith("pythonw.exe"):
+        candidato = os.path.join(os.path.dirname(exe), "python.exe")
+        if os.path.exists(candidato):
+            exe = candidato
+
+    env = os.environ.copy()
+    env["CRAWLER_BG"] = "1"
+
+    opcoes = dict(
+        cwd=BASE_DIR,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if os.name == "nt":
+        # python.exe com console oculto (e não pythonw), para o Chrome/Playwright também não abrirem janelas
+        opcoes["creationflags"] = subprocess.CREATE_NO_WINDOW
+    else:
+        opcoes["start_new_session"] = True
+
+    subprocess.Popen([exe, os.path.abspath(__file__)], **opcoes)
+
+
+def garantir_instancia_unica():
+    """Evita várias cópias escondidas rodando juntas (ex.: agendador disparando de hora em hora)."""
+    trava = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        trava.bind(("127.0.0.1", PORTA_TRAVA))
+    except OSError:
+        print("Já existe uma instância em execução. Encerrando esta.")
+        sys.exit(0)
+    return trava  # precisa ficar referenciada enquanto o script roda
+
+
+def loop_principal():
     while True:
+        print(f"--- {datetime.now():%d/%m/%Y %H:%M:%S} ---")
         rodar_crawler()
         print("Aguardando 1 hora para a próxima execução...\n")
         # Espera 3600 segundos (1 hora) antes de rodar de novo
         time.sleep(3600)
+
+
+if __name__ == "__main__":
+    if EM_SEGUNDO_PLANO:
+        # Cópia escondida: só mantém o loop de 1 hora (saída vai para o crawler.log)
+        _trava = garantir_instancia_unica()
+        loop_principal()
+
+    elif PRIMEIRA_EXECUCAO:
+        # Sem .env: o terminal interativo já pediu as credenciais lá em cima.
+        # Roda uma vez COM a janela visível pra você ver se o login funcionou.
+        if rodar_crawler():
+            print("\nTudo certo! A partir de agora o crawler roda em segundo plano, sem janela.")
+            iniciar_em_segundo_plano()
+            time.sleep(3)
+        else:
+            print("\nA primeira execução falhou. Veja o erro acima. "
+                  "Se as credenciais estiverem erradas, apague o arquivo .env e rode de novo.")
+            input("Pressione Enter para fechar...")
+
+    elif os.path.exists(ENV_FILE):
+        # Já configurado: nada aparece na tela, vai direto pro segundo plano
+        iniciar_em_segundo_plano()
+
+    else:
+        # Sem .env mas com variáveis de ambiente (ex.: GitHub Actions): roda no próprio processo
+        loop_principal()
