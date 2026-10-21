@@ -7,12 +7,6 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-#O item abaixo vai virar um executável na inicialização
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-if sys.executable.lower().endswith("pythonw.exe"):
-    sys.stdout = sys.stderr = open("crawler.log", "a", encoding="utf-8", buffering=1)
-
 #Injeção de SSL para o firewall da empresa deixar passar
 truststore.inject_into_ssl()
 
@@ -140,7 +134,7 @@ def enviar_para_supabase(csv_path):
 
     print("Sincronização com o Supabase concluída com sucesso!")
 
-# Encapsula o seu fluxo (sem alterar nada dele) para rodar em loop
+# Temporizador
 def rodar_crawler():
     try:
         print("Iniciando o crawler...")
