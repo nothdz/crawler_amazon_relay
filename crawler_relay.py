@@ -415,6 +415,7 @@ if __name__ == "__main__":
             print("\nA primeira execução falhou. Veja o erro acima. "
                   "Se as credenciais estiverem erradas, apague o arquivo .env e rode de novo.")
             input("Pressione Enter para fechar...")
+            sys.exit(1)  # o instalador usa isso pra não criar o atalho de inicialização
 
     elif os.path.exists(ENV_FILE):
         # Já configurado: nada aparece na tela, vai direto pro segundo plano
