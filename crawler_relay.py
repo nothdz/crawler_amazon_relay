@@ -9,7 +9,7 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-#Injeção de SSL para o firewall da empresa deixar passar
+#Injeção de SSL para confiança
 truststore.inject_into_ssl()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -43,7 +43,7 @@ def _tem_todas_as_variaveis():
 PRIMEIRA_EXECUCAO = not os.path.exists(ENV_FILE) and not _tem_todas_as_variaveis()
 
 
-# Verifica se já possui .env (ou variáveis de ambiente, ex.: GitHub Actions).
+# Verifica se já possui .env (ou variáveis de ambiente)
 # Caso não tenha nenhum dos dois, cria o .env na hora com as credenciais do usuário,
 # mas SÓ se houver um terminal interativo (em modo silencioso/agendado o input() travaria).
 if not os.path.exists(ENV_FILE) and not _tem_todas_as_variaveis():
@@ -192,7 +192,7 @@ def enviar_para_supabase(csv_path):
 
 
 def precisa_login(page):
-    """Detecta se a página atual é de login (por URL ou pela presença do campo de e-mail)."""
+    #Detecta se a página atual é de login (por URL ou pela presença do campo de e-mail).
     if any(x in page.url for x in URLS_LOGIN):
         return True
     try:
@@ -204,7 +204,7 @@ def precisa_login(page):
 
 
 def criar_contexto(browser):
-    """Cria o contexto reaproveitando a sessão salva (se existir e estiver íntegra)."""
+    #Cria o contexto reaproveitando a sessão salva (se existir e estiver íntegra).
     opcoes = dict(
         accept_downloads=True,
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
