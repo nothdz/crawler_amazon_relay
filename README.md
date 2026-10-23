@@ -1,4 +1,3 @@
-# Crawler para Amazon Relay
 # Relay Crawler
 
 Automação que exporta o relatório de viagens do **Amazon Relay** e sincroniza os dados com uma tabela no **Supabase** (PostgreSQL), mantendo a base atualizada de hora em hora.
