@@ -54,7 +54,7 @@ Todas as colunas são gravadas como texto, sem conversão de tipos no cliente. C
 ## Execução
 
 ```bash
-python crawler.py
+python crawler_relay.py
 ```
 
 O comportamento depende do estado do ambiente:
