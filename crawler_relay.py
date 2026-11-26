@@ -46,6 +46,19 @@ def _obter_supabase_key():
 def _tem_amazon():
     return all((os.getenv(c) or "").strip() for c in CAMPOS_AMAZON)
 
+def _remover_do_env(chaves):
+    if not os.path.exists(ENV_FILE):
+        return
+    with open(ENV_FILE, "r", encoding="utf-8") as f:
+        linhas = f.read().splitlines()
+    saida = []
+    for linha in linhas:
+        if "=" in linha and not linha.lstrip().startswith("#"):
+            if linha.split("=", 1)[0].strip() in chaves:
+                continue
+        saida.append(linha)
+    with open(ENV_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(saida) + "\n")
 
 def _salvar_no_env(novos_valores: dict):
     linhas = []
@@ -442,8 +455,11 @@ if __name__ == "__main__":
             iniciar_em_segundo_plano()
             time.sleep(3)
         else:
+            # Apaga só as credenciais da Amazon; as chaves do Supabase continuam no .env.
+            # Na próxima execução o script volta a pedir e-mail e senha.
+            _remover_do_env(CAMPOS_AMAZON)
             print("\nA primeira execução falhou. Veja o erro acima. "
-                  "Se as credenciais estiverem erradas, apague o arquivo .env e rode de novo.")
+                  "O e-mail e a senha foram descartados e serão pedidos de novo na próxima vez.")
             input("Pressione Enter para fechar...")
             sys.exit(1)  # o instalador usa isso pra não criar o atalho de inicialização
 
