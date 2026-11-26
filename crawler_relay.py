@@ -1,7 +1,6 @@
 import os, sys
 import time
 import socket
-import getpass
 import subprocess
 import pandas as pd
 import truststore
@@ -10,7 +9,7 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-# Injeção de SSL para confiança
+#Injeção de SSL para confiança
 truststore.inject_into_ssl()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +24,11 @@ SCREENSHOT_EXPORTAR = os.path.join(BASE_DIR, "erro_exportar.png")
 LOG_FILE = os.path.join(BASE_DIR, "crawler.log")
 PORTA_TRAVA = 49733  # trava de instância única (só uma cópia em segundo plano por máquina)
 
+if os.path.exists(ENV_FILE):
+    load_dotenv(ENV_FILE)
+
 CAMPOS_AMAZON = ["EMAIL_AMAZON", "SENHA_AMAZON"]
+CAMPOS_SUPABASE = ["SUPABASE_URL", "SUPABASE_KEY"]
 
 # O processo em segundo plano é iniciado pelo próprio script com esta variável definida.
 EM_SEGUNDO_PLANO = os.environ.get("CRAWLER_BG") == "1"
@@ -40,57 +43,55 @@ def _obter_supabase_key():
     return (os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_PUBLISHABLE_KEY") or "").strip()
 
 
+def _tem_amazon():
+    return all((os.getenv(c) or "").strip() for c in CAMPOS_AMAZON)
+
+
 def _salvar_no_env(novos_valores: dict):
-    """Atualiza ou adiciona chaves no .env preservando linhas existentes."""
-    linhas_existentes = []
+    linhas = []
     if os.path.exists(ENV_FILE):
         with open(ENV_FILE, "r", encoding="utf-8") as f:
-            linhas_existentes = f.read().splitlines()
+            linhas = f.read().splitlines()
 
     chaves_vistas = set()
-    novas_linhas = []
-
-    for linha in linhas_existentes:
+    saida = []
+    for linha in linhas:
         if "=" in linha and not linha.lstrip().startswith("#"):
-            chave = linha.split("=", 1)[0].strip()
-            if chave in novos_valores:
-                novas_linhas.append(f"{chave}={novos_valores[chave]}")
-                chaves_vistas.add(chave)
+            k = linha.split("=", 1)[0].strip()
+            if k in novos_valores:
+                saida.append(f"{k}={novos_valores[k]}")
+                chaves_vistas.add(k)
                 continue
-        novas_linhas.append(linha)
+        saida.append(linha)
 
-    for chave, valor in novos_valores.items():
-        if chave not in chaves_vistas:
-            novas_linhas.append(f"{chave}={valor}")
+    for k, v in novos_valores.items():
+        if k not in chaves_vistas:
+            saida.append(f"{k}={v}")
 
     with open(ENV_FILE, "w", encoding="utf-8") as f:
-        f.write("\n".join(novas_linhas) + "\n")
+        f.write("\n".join(saida) + "\n")
 
 
-# Carrega o .env antes de checar o que falta (ex.: Supabase já gravado pelo .bat)
-if os.path.exists(ENV_FILE):
-    load_dotenv(ENV_FILE)
+# Primeira execução = não tem credenciais da Amazon ainda -> vai abrir o modo interativo (visível)
+PRIMEIRA_EXECUCAO = not _tem_amazon()
 
-PEDIU_AMAZON_AGORA = False
-faltando_amazon = [c for c in CAMPOS_AMAZON if not (os.getenv(c) or "").strip()]
-
-if faltando_amazon:
+if not _tem_amazon():
     if sys.stdin is not None and sys.stdin.isatty():
-        print("Configuração inicial da Amazon Relay:")
-        coletados = {}
+        print("Primeira execução detectada. Por favor, configure as credenciais:")
 
-        if not (os.getenv("EMAIL_AMAZON") or "").strip():
-            coletados["EMAIL_AMAZON"] = input("E-mail da Amazon Relay: ").strip()
+        email_amazon = input("E-mail da Amazon Relay: ").strip()
+        senha_amazon = input("Senha da Amazon Relay: ").strip()
 
-        if not (os.getenv("SENHA_AMAZON") or "").strip():
-            coletados["SENHA_AMAZON"] = getpass.getpass("Senha da Amazon Relay: ").strip()
-
-        _salvar_no_env(coletados)
+        _salvar_no_env({
+            "EMAIL_AMAZON": email_amazon,
+            "SENHA_AMAZON": senha_amazon,
+        })
         load_dotenv(ENV_FILE, override=True)
-        PEDIU_AMAZON_AGORA = True
-        print("Credenciais da Amazon salvas no .env!\n")
+
+        print("Credenciais salvas com sucesso!\n")
     else:
-        print("ERRO: credenciais da Amazon não configuradas e não há terminal interativo.")
+        print("ERRO: credenciais da Amazon não encontradas e não há terminal interativo. "
+              "Rode o script uma vez de forma visível (ou defina as variáveis de ambiente).")
         sys.exit(1)
 
 EMAIL_AMAZON = (os.getenv("EMAIL_AMAZON") or "").strip()
@@ -106,7 +107,7 @@ if not SENHA_AMAZON:
 if not SUPABASE_URL:
     _faltando.append("SUPABASE_URL")
 if not SUPABASE_KEY:
-    _faltando.append("SUPABASE_KEY / SUPABASE_PUBLISHABLE_KEY")
+    _faltando.append("SUPABASE_KEY")
 
 if _faltando:
     print(f"ERRO: variáveis ausentes no .env/ambiente: {', '.join(_faltando)}")
@@ -221,7 +222,7 @@ def enviar_para_supabase(csv_path):
 
 
 def precisa_login(page):
-    # Detecta se a página atual é de login (por URL ou pela presença do campo de e-mail).
+    #Detecta se a página atual é de login (por URL ou pela presença do campo de e-mail).
     if any(x in page.url for x in URLS_LOGIN):
         return True
     try:
@@ -233,7 +234,7 @@ def precisa_login(page):
 
 
 def criar_contexto(browser):
-    # Cria o contexto reaproveitando a sessão salva (se existir e estiver íntegra).
+    #Cria o contexto reaproveitando a sessão salva (se existir e estiver íntegra).
     opcoes = dict(
         accept_downloads=True,
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -433,15 +434,16 @@ if __name__ == "__main__":
         _trava = garantir_instancia_unica()
         loop_principal()
 
-    elif PEDIU_AMAZON_AGORA:
-        # Acabou de pedir e-mail/senha da Amazon no terminal: testa visível antes de jogar pro fundo
+    elif PRIMEIRA_EXECUCAO:
+        # Sem credenciais da Amazon: o terminal interativo pediu acima.
+        # Roda uma vez COM a janela visível pra você ver se o login funcionou.
         if rodar_crawler():
             print("\nTudo certo! A partir de agora o crawler roda em segundo plano, sem janela.")
             iniciar_em_segundo_plano()
             time.sleep(3)
         else:
             print("\nA primeira execução falhou. Veja o erro acima. "
-                  "Se as credenciais estiverem erradas, remova EMAIL_AMAZON e SENHA_AMAZON do .env e rode de novo.")
+                  "Se as credenciais estiverem erradas, apague o arquivo .env e rode de novo.")
             input("Pressione Enter para fechar...")
             sys.exit(1)  # o instalador usa isso pra não criar o atalho de inicialização
 
@@ -450,5 +452,5 @@ if __name__ == "__main__":
         iniciar_em_segundo_plano()
 
     else:
-        # Variáveis de ambiente sem .env (ex.: CI/servidor): roda no próprio processo
+        # Sem .env mas com variáveis de ambiente (ex.: GitHub Actions): roda no próprio processo
         loop_principal()
